@@ -17,47 +17,80 @@ Test Fixtures:
 
 Test Coverage:
     These tests cover the CRUD (Create, Read, Update, Delete) operations
-    for the ToDo model and the corresponding routes.
+    for the ToDo model and the corresponding routes using the new REST API.
 """
 
 from src import create_app, db
 from src.models.todo import Todo
+import json
 
 
 def test_add_todo(client):
-    """Test creating a new todo item via POST request to /add endpoint."""
-    response = client.post('/add', data={'title': 'Test Todo', 'is_completed': False})
-    assert response.status_code == 302  # Redirect after adding
+    """Test creating a new todo item via POST request to /api/todos endpoint."""
+    response = client.post('/api/todos', 
+                          data=json.dumps({'title': 'Test Todo'}),
+                          content_type='application/json')
+    assert response.status_code == 201  # Created
+    data = response.get_json()
+    assert data['title'] == 'Test Todo'
+    assert data['is_completed'] is False
+    
+    # Verify in database
     todo = Todo.query.filter_by(title='Test Todo').first()
     assert todo is not None
-    assert todo.is_completed is False
 
 def test_edit_todo(client):
-    """Test editing an existing todo item via POST request to /edit/<id> endpoint."""
+    """Test editing an existing todo item via PUT request to /api/todos/<id> endpoint."""
+    # Create a todo first
     todo = Todo(title='Edit Test Todo', is_completed=False)
     db.session.add(todo)
     db.session.commit()
     
-    response = client.post(f'/edit/{todo.id}', data={'title': 'Updated Todo', 'is_completed': True})
-    assert response.status_code == 302  # Redirect after editing
+    # Update it
+    response = client.put(f'/api/todos/{todo.id}',
+                         data=json.dumps({'title': 'Updated Todo', 'is_completed': True}),
+                         content_type='application/json')
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data['title'] == 'Updated Todo'
+    assert data['is_completed'] is True
+    
+    # Verify in database
     updated_todo = Todo.query.get(todo.id)
     assert updated_todo.title == 'Updated Todo'
     assert updated_todo.is_completed is True
 
 def test_delete_todo(client):
-    """Test deleting a todo item via POST request to /delete/<id> endpoint."""
+    """Test deleting a todo item via DELETE request to /api/todos/<id> endpoint."""
+    # Create a todo first
     todo = Todo(title='Delete Test Todo', is_completed=False)
     db.session.add(todo)
     db.session.commit()
+    todo_id = todo.id
     
-    response = client.post(f'/delete/{todo.id}')
-    assert response.status_code == 302  # Redirect after deleting
-    deleted_todo = Todo.query.get(todo.id)
+    # Delete it
+    response = client.delete(f'/api/todos/{todo_id}')
+    assert response.status_code == 200
+    
+    # Verify it's deleted from database
+    deleted_todo = Todo.query.get(todo_id)
     assert deleted_todo is None
 
 def test_list_todos(client):
-    """Test retrieving the list of todos via GET request to / endpoint."""
-    response = client.get('/')
+    """Test retrieving the list of todos via GET request to /api/todos endpoint."""
+    # Create some test todos
+    todo1 = Todo(title='Todo 1', is_completed=False)
+    todo2 = Todo(title='Todo 2', is_completed=True)
+    db.session.add_all([todo1, todo2])
+    db.session.commit()
+    
+    # Get the API response
+    response = client.get('/api/todos')
     assert response.status_code == 200
-    assert b'ToDo List' in response.data  # Check if the title is in the response
-    assert b'Add New Todo' in response.data  # Check if the add button is in the response
+    data = response.get_json()
+    assert isinstance(data, list)
+    assert len(data) >= 2
+    
+    titles = [todo['title'] for todo in data]
+    assert 'Todo 1' in titles
+    assert 'Todo 2' in titles

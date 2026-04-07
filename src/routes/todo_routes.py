@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, jsonify
 from ..models.todo import Todo
 from .. import db
 
@@ -6,38 +6,54 @@ todo_bp = Blueprint('todo', __name__)
 
 @todo_bp.route('/')
 def index():
+    return render_template('index.html')
+
+# API endpoint to get all todos
+@todo_bp.route('/api/todos', methods=['GET'])
+def get_todos():
     todos = Todo.query.all()
-    return render_template('index.html', todos=todos)
+    return jsonify([{
+        'id': todo.id,
+        'title': todo.title,
+        'is_completed': todo.is_completed
+    } for todo in todos])
 
-@todo_bp.route('/add', methods=['GET', 'POST'])
+# API endpoint to add a new todo
+@todo_bp.route('/api/todos', methods=['POST'])
 def add_todo():
-    if request.method == 'POST':
-        title = request.form.get('title')
-        if title:
-            new_todo = Todo(title=title, is_completed=False)
-            db.session.add(new_todo)
-            db.session.commit()
-            flash('Todo item added successfully!', 'success')
-            return redirect(url_for('todo.index'))
-    return render_template('add_todo.html')
-
-@todo_bp.route('/edit/<int:todo_id>', methods=['GET', 'POST'])
-def edit_todo(todo_id):
-    todo = Todo.query.get_or_404(todo_id)
-    if request.method == 'POST':
-        todo.title = request.form.get('title')
-        todo.is_completed = 'is_completed' in request.form
+    data = request.get_json()
+    title = data.get('title', '').strip()
+    if title:
+        new_todo = Todo(title=title, is_completed=False)
+        db.session.add(new_todo)
         db.session.commit()
-        flash('Todo item updated successfully!', 'success')
-        return redirect(url_for('todo.index'))
-    return render_template('edit_todo.html', todo=todo)
+        return jsonify({
+            'id': new_todo.id,
+            'title': new_todo.title,
+            'is_completed': new_todo.is_completed
+        }), 201
+    return jsonify({'error': 'Title is required'}), 400
 
-@todo_bp.route('/delete/<int:todo_id>', methods=['GET', 'POST'])
+# API endpoint to update a todo
+@todo_bp.route('/api/todos/<int:todo_id>', methods=['PUT'])
+def update_todo(todo_id):
+    todo = Todo.query.get_or_404(todo_id)
+    data = request.get_json()
+    if 'title' in data:
+        todo.title = data['title'].strip()
+    if 'is_completed' in data:
+        todo.is_completed = data['is_completed']
+    db.session.commit()
+    return jsonify({
+        'id': todo.id,
+        'title': todo.title,
+        'is_completed': todo.is_completed
+    })
+
+# API endpoint to delete a todo
+@todo_bp.route('/api/todos/<int:todo_id>', methods=['DELETE'])
 def delete_todo(todo_id):
     todo = Todo.query.get_or_404(todo_id)
-    if request.method == 'POST':
-        db.session.delete(todo)
-        db.session.commit()
-        flash('Todo item deleted successfully!', 'success')
-        return redirect(url_for('todo.index'))
-    return render_template('delete_todo.html', todo=todo)
+    db.session.delete(todo)
+    db.session.commit()
+    return jsonify({'message': 'Todo deleted successfully'}), 200
