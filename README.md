@@ -2,6 +2,8 @@
 
 A modern, interactive ToDo List application built with **React** and **Flask**. This single-page application allows users to manage their tasks seamlessly with inline add, edit, and delete functionality—no page redirects needed!
 
+> **💡 Development Note:** This project was developed iteratively with **Copilot (Claude Haiku 4.5)** as a proof of concept. While fully functional, it represents an initial implementation that may benefit from additional review, refactoring, and production hardening.
+
 ## ✨ Features
 
 - ✅ **Add new todos** - Quick and easy task creation
