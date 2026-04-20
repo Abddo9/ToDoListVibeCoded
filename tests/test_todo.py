@@ -56,7 +56,7 @@ def test_edit_todo(client):
     assert data['is_completed'] is True
     
     # Verify in database
-    updated_todo = Todo.query.get(todo.id)
+    updated_todo = db.session.get(Todo, todo.id)
     assert updated_todo.title == 'Updated Todo'
     assert updated_todo.is_completed is True
 
@@ -73,7 +73,7 @@ def test_delete_todo(client):
     assert response.status_code == 200
     
     # Verify it's deleted from database
-    deleted_todo = Todo.query.get(todo_id)
+    deleted_todo = db.session.get(Todo, todo_id)
     assert deleted_todo is None
 
 def test_list_todos(client):
